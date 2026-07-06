@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Ficha celeste con pez: ícono de Fish Poker -->
+  <circle cx="256" cy="256" r="252" fill="#2f8fbe"/>
+  <circle cx="256" cy="256" r="236" fill="#7fc9e8"/>
+  <circle cx="256" cy="256" r="204" fill="none" stroke="#fdfdf8" stroke-width="44" stroke-dasharray="62 92"/>
+  <circle cx="256" cy="256" r="158" fill="#7fc9e8" stroke="#2f8fbe" stroke-width="8"/>
+  <!-- Pez -->
+  <g fill="#fdfdf8">
+    <ellipse cx="242" cy="278" rx="92" ry="52"/>
+    <path d="M318 278 L382 234 L366 278 L382 322 Z"/>
+    <path d="M226 226 L258 196 L270 232 Z"/>
+  </g>
+  <circle cx="192" cy="266" r="10" fill="#2b1d10"/>
+  <!-- Sombrero de cowboy -->
+  <g>
+    <ellipse cx="240" cy="196" rx="78" ry="18" fill="#54341a"/>
+    <path d="M204 196 Q206 148 240 148 Q274 148 276 196 Z" fill="#7a4a21"/>
+    <rect x="204" y="178" width="72" height="12" rx="6" fill="#d9a821"/>
+  </g>
+</svg>

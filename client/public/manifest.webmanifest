@@ -1,0 +1,17 @@
+{
+  "name": "Fish Poker",
+  "short_name": "Fish Poker",
+  "description": "Texas Hold'em con amigos — fichas virtuales, sin registro",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#5c3434",
+  "theme_color": "#5c3434",
+  "lang": "es",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

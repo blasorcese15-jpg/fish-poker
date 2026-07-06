@@ -1,0 +1,15 @@
+{
+  "name": "fish-poker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Texas Hold'em con amigos — fichas virtuales, sin registro",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client && npm install",
+    "dev": "concurrently -n server,client -c blue,cyan \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "build": "npm run build --prefix client",
+    "start": "node server/src/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

@@ -1,0 +1,10 @@
+# Blueprint de Render: crea el servicio con un click desde el repo.
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: fish-poker
+    runtime: node
+    plan: free
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
