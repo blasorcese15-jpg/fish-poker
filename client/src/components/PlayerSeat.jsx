@@ -15,14 +15,49 @@ export const PLAYER_COLORS = [
   '#5c6b73', // gris pizarra
 ];
 
-// Sombrero texano, el ícono de cada jugador
-function CowboyHat({ color, size = 30 }) {
+// Sombreros renderizados (assets IA del sheet del usuario). Los colores que
+// no vinieron renderizados se derivan con filtros de tono sobre el gris/rojo.
+export const HAT_SPRITES = [
+  { src: '/assets/hat-red.png' }, // rojo
+  { src: '/assets/hat-gray.png', filter: 'sepia(1) saturate(4) hue-rotate(185deg) brightness(0.95)' }, // azul
+  { src: '/assets/hat-tan.png' }, // dorado
+  { src: '/assets/hat-gray.png', filter: 'sepia(1) saturate(3) hue-rotate(230deg) brightness(1.05)' }, // violeta
+  { src: '/assets/hat-brown.png', filter: 'saturate(1.7) hue-rotate(-8deg) brightness(1.12)' }, // naranja
+  { src: '/assets/hat-gray.png', filter: 'sepia(1) saturate(3) hue-rotate(130deg)' }, // turquesa
+  { src: '/assets/hat-red.png', filter: 'hue-rotate(315deg) saturate(1.2) brightness(1.2)' }, // rosa
+  { src: '/assets/hat-brown.png' }, // marrón
+  { src: '/assets/hat-black.png' }, // negro
+];
+
+// Sombrero texano vectorial (se usa como decoración y fallback).
+export function CowboyHat({ color, size = 30 }) {
   return (
-    <svg viewBox="0 0 64 44" width={size} height={size * 0.69} aria-hidden="true">
-      <path d="M25 6 Q32 1 39 6 L44 24 L20 24 Z" fill={color} />
-      <ellipse cx="32" cy="30" rx="29" ry="9" fill={color} />
-      <ellipse cx="32" cy="27.5" rx="21" ry="6" fill="rgba(0,0,0,0.25)" />
-      <rect x="21" y="19" width="22" height="6" rx="3" fill="rgba(0,0,0,0.35)" />
+    <svg viewBox="0 0 64 46" width={size} height={size * 0.72} aria-hidden="true">
+      {/* Sombra proyectada */}
+      <ellipse cx="32" cy="41" rx="26" ry="3.5" fill="rgba(0,0,0,0.28)" />
+      {/* Ala */}
+      <path
+        d="M3 30 Q3 24 9 26 Q20 29 32 29 Q44 29 55 26 Q61 24 61 30 Q61 36 48 38.5 Q40 40 32 40 Q24 40 16 38.5 Q3 36 3 30 Z"
+        fill={color}
+      />
+      {/* Curva del ala: luz arriba, sombra abajo */}
+      <path
+        d="M3 30 Q3 24 9 26 Q20 29 32 29 Q44 29 55 26 Q61 24 61 30 L61 30 Q45 33 32 33 Q19 33 3 30 Z"
+        fill="rgba(255,255,255,0.14)"
+      />
+      <path
+        d="M6 33.5 Q18 37.5 32 37.5 Q46 37.5 58 33.5 Q52 38 40 39.4 Q32 40.3 24 39.4 Q12 38 6 33.5 Z"
+        fill="rgba(0,0,0,0.3)"
+      />
+      {/* Copa */}
+      <path d="M21 29 L23 9 Q24 4 29 5.5 Q32 2.5 35 5.5 Q40 4 41 9 L43 29 Q32 31.5 21 29 Z" fill={color} />
+      {/* Hendidura y volumen de la copa */}
+      <path d="M29 5.5 Q32 2.5 35 5.5 Q34 12 34 18 L30 18 Q30 12 29 5.5 Z" fill="rgba(0,0,0,0.22)" />
+      <path d="M23 9 Q24 4 29 5.5 Q30 12 30 20 L23 22 Z" fill="rgba(255,255,255,0.12)" />
+      <path d="M41 9 Q40 4 35 5.5 Q34 12 34 20 L41 22 Z" fill="rgba(0,0,0,0.16)" />
+      {/* Banda con hebilla dorada */}
+      <path d="M21.5 23.5 Q32 26.5 42.5 23.5 L43 29 Q32 31.5 21 29 Z" fill="rgba(20,12,4,0.55)" />
+      <rect x="29.5" y="24.8" width="5" height="4.6" rx="1" fill="#d9a821" stroke="#8a6510" strokeWidth="0.8" />
     </svg>
   );
 }
@@ -62,7 +97,13 @@ export function PlayerSeat({ player, isDealer, isTurn, isMe, isAdmin, handInfo, 
           player.cards.map((c, i) => <Card key={i} card={c} size="sm" />)}
       </div>
       <div className="seat-hat-big">
-        <CowboyHat color={color} size={46} />
+        <img
+          className="seat-hat-img"
+          src={HAT_SPRITES[player.colorIdx % HAT_SPRITES.length].src}
+          style={{ filter: HAT_SPRITES[player.colorIdx % HAT_SPRITES.length].filter }}
+          alt=""
+          draggable="false"
+        />
       </div>
       <div className="seat-plate">
         {isDealer && <span className="dealer-btn">D</span>}

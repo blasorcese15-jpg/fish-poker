@@ -102,6 +102,13 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
       </header>
 
       <div className="felt-wrap">
+        {/* Decoración del saloon: sombreros colgados y lámpara */}
+        <div className="wall-decor" aria-hidden="true">
+          <img className="wall-hat" src="/assets/hat-brown.png" alt="" style={{ left: '7%', width: 46, transform: 'rotate(-7deg)' }} />
+          <img className="wall-hat" src="/assets/hat-black.png" alt="" style={{ left: '31%', top: 10, width: 38, transform: 'rotate(4deg)' }} />
+          <img className="wall-hat" src="/assets/hat-tan.png" alt="" style={{ right: '28%', top: 8, width: 40, transform: 'rotate(-4deg)' }} />
+          <img className="wall-lantern" src="/assets/lantern.png" alt="" style={{ right: '7%' }} />
+        </div>
         <div className="felt">
           <div className="felt-brand">
             <span className="felt-brand-stars">★ ★ ★</span>

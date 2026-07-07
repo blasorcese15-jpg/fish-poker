@@ -24,6 +24,16 @@ export function Chip({ denom, size = 42 }) {
         strokeDashoffset="5"
       />
       <circle cx="50" cy="50" r="30" fill={denom.color} stroke={denom.rim} strokeWidth="2.5" />
+      {/* Volumen: luz arriba-izquierda, sombra abajo-derecha */}
+      <path
+        d="M14 34 A40 40 0 0 1 66 14 A46 46 0 0 0 14 34 Z"
+        fill="rgba(255,255,255,0.35)"
+      />
+      <ellipse cx="38" cy="32" rx="17" ry="9" fill="rgba(255,255,255,0.22)" transform="rotate(-32 38 32)" />
+      <path
+        d="M86 66 A40 40 0 0 1 34 86 A46 46 0 0 0 86 66 Z"
+        fill="rgba(0,0,0,0.22)"
+      />
       <text
         x="50"
         y="50"
