@@ -5,12 +5,12 @@ import { ChipPile } from './Chip.jsx';
 import { PlayerSeat } from './PlayerSeat.jsx';
 import { ActionBar } from './ActionBar.jsx';
 import { AdminPanel } from './AdminPanel.jsx';
+import { SidePanel } from './SidePanel.jsx';
 import { PLAYER_COLORS } from './PlayerSeat.jsx';
 
 const BETTING = ['preflop', 'flop', 'turn', 'river'];
 
-export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, onGrant, onEnd }) {
-  const [showLog, setShowLog] = useState(false);
+export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, onGrant, onKick, onEnd }) {
   const [copied, setCopied] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [salsa, setSalsa] = useState(null); // {nickname, key} → animación festiva
@@ -94,6 +94,7 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
         </button>
         <span className="blinds-info">
           Ciegas {state.config.smallBlind}/{state.config.bigBlind}
+          {state.handNum > 0 && ` · Mano #${state.handNum}`}
         </span>
         <button className="link link-leave" onClick={onLeave}>
           Salir
@@ -102,6 +103,11 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
 
       <div className="felt-wrap">
         <div className="felt">
+          <div className="felt-brand">
+            <span className="felt-brand-stars">★ ★ ★</span>
+            FISH POKER
+            <span className="felt-brand-sub">TEXAS HOLD&apos;EM</span>
+          </div>
           <div className="felt-center">
             {state.phase === 'waiting' ? (
               <div className="waiting-msg">
@@ -155,9 +161,12 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
           players={state.players}
           myId={myId}
           onGrant={onGrant}
+          onKick={onKick}
           onClose={() => setAdminOpen(false)}
         />
       )}
+
+      <SidePanel chat={state.chat || []} log={state.log} myNickname={me?.nickname} />
 
       {state.phase === 'ended' && state.result?.standings && (
         <div className="modal-backdrop">
@@ -274,16 +283,6 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
           </div>
         )}
 
-        <button className="link log-toggle" onClick={() => setShowLog(!showLog)}>
-          {showLog ? 'Ocultar historial' : 'Historial'}
-        </button>
-        {showLog && (
-          <div className="hand-log">
-            {state.log.slice().reverse().map((l, i) => (
-              <div key={i}>{l}</div>
-            ))}
-          </div>
-        )}
       </footer>
     </div>
   );

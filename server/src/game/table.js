@@ -99,6 +99,7 @@ export class Table {
     this.minRaise = this.config.bigBlind;
     this.result = null;
     this.log = [];
+    this.chat = [];
     this.handNum = 0;
     this.turnDeadline = null;
     this._turnTimer = null;
@@ -109,10 +110,23 @@ export class Table {
 
   addPlayer(id, nickname) {
     if (this.phase === 'ended') return { error: 'La partida ya terminó' };
-    if (this.players.filter((p) => p.connected).length >= this.config.maxPlayers)
+    // Reincorporación: el mismo nickname con el asiento desconectado
+    // recupera su lugar, su stack y sus fichas tal como los dejó.
+    const existing = this.players.find(
+      (p) => p.nickname.toLowerCase() === nickname.toLowerCase()
+    );
+    if (existing) {
+      if (existing.connected) return { error: 'Ese nickname ya está en uso en esta mesa' };
+      const oldId = existing.id;
+      existing.id = id;
+      existing.connected = true;
+      if (this.hostId === oldId) this.hostId = id;
+      this._log(`${existing.nickname} volvió a la mesa`);
+      return { ok: true, reclaimed: true };
+    }
+    // Los desconectados conservan su asiento, así que cuentan para el límite
+    if (this.players.length >= this.config.maxPlayers)
       return { error: 'La mesa está llena' };
-    if (this.players.some((p) => p.nickname.toLowerCase() === nickname.toLowerCase()))
-      return { error: 'Ese nickname ya está en uso en esta mesa' };
     // Color distintivo: el índice libre más bajo (hasta 9 jugadores)
     const used = new Set(this.players.map((p) => p.colorIdx));
     let colorIdx = 0;
@@ -140,17 +154,18 @@ export class Table {
     return { ok: true };
   }
 
-  removePlayer(id) {
+  // Salir de la app NO saca del juego: el asiento, el stack y las fichas
+  // quedan guardados hasta que vuelva (mismo nickname) o el admin lo saque.
+  disconnect(id) {
     const idx = this.players.findIndex((p) => p.id === id);
     if (idx === -1) return;
     const p = this.players[idx];
+    if (!p.connected) return;
     p.connected = false;
-    this._log(`${p.nickname} dejó la mesa`);
+    this._log(`${p.nickname} se desconectó (su asiento queda guardado)`);
 
+    // Si estaba en medio de una mano, se foldea; sus fichas apostadas quedan
     if (this._inBettingPhase() && p.inHand && !p.folded) {
-      // Se va en medio de una mano: se foldea y sus fichas quedan en el pozo.
-      // Recién se lo saca del array al terminar la mano (los índices de la
-      // mano en curso dependen de las posiciones).
       if (this.toActIdx === idx) {
         this._autoAct(id);
       } else {
@@ -158,14 +173,48 @@ export class Table {
         p.lastAction = 'fold';
         this._checkUncontested();
       }
-    } else if (this.phase !== 'ended') {
-      this.players.splice(idx, 1);
-      if (this.dealerIdx >= idx) this.dealerIdx--;
     }
-    if (this.hostId === id) {
-      const next = this.players.find((q) => q.connected);
-      this.hostId = next ? next.id : null;
+  }
+
+  // Única forma de sacar a alguien de la mesa: decisión del admin.
+  kickPlayer(byId, targetId) {
+    if (byId !== this.hostId) return { error: 'Solo el admin puede sacar jugadores' };
+    if (targetId === byId) return { error: 'El admin no puede sacarse a sí mismo' };
+    const target = this.players.find((p) => p.id === targetId);
+    if (!target) return { error: 'Jugador no encontrado' };
+
+    // Si está en la mano actual, primero se lo foldea
+    const idx = this.players.indexOf(target);
+    if (this._inBettingPhase() && target.inHand && !target.folded) {
+      if (this.toActIdx === idx) {
+        this._autoAct(targetId);
+      } else {
+        target.folded = true;
+        target.lastAction = 'fold';
+        this._checkUncontested();
+      }
     }
+
+    // Puede haber cambiado el estado (mano terminada): recalcular la posición
+    const i = this.players.indexOf(target);
+    if (i !== -1) {
+      this.players.splice(i, 1);
+      if (this.dealerIdx >= i) this.dealerIdx--;
+      if (this.toActIdx > i) this.toActIdx--;
+    }
+    this._log(`⭐ El admin sacó a ${target.nickname} de la mesa`);
+    return { ok: true };
+  }
+
+  // Chat interno de la mesa
+  addChat(id, text) {
+    const p = this.players.find((q) => q.id === id);
+    if (!p) return { error: 'No estás en la mesa' };
+    const msg = String(text || '').trim().slice(0, 300);
+    if (!msg) return { error: 'Mensaje vacío' };
+    this.chat.push({ nickname: p.nickname, colorIdx: p.colorIdx, text: msg, ts: Date.now() });
+    if (this.chat.length > 100) this.chat.shift();
+    return { ok: true };
   }
 
   // El admin (creador de la mesa) acredita fichas a cualquier jugador,
@@ -246,10 +295,9 @@ export class Table {
     clearTimeout(this._nextHandTimer);
     this._clearTurnTimer();
 
-    // Purgar desconectados entre manos
-    this.players = this.players.filter((p) => p.connected);
-
-    const eligible = this.players.filter((p) => p.stack > 0);
+    // Los ausentes conservan asiento y fichas, pero no juegan la mano
+    // (no se les reparte ni pagan ciegas hasta que vuelvan)
+    const eligible = this.players.filter((p) => p.connected && p.stack > 0);
     if (eligible.length < 2) {
       this.phase = 'waiting';
       this.result = null;
@@ -280,7 +328,7 @@ export class Table {
       p.allIn = false;
       p.acted = false;
       p.lastAction = null;
-      p.inHand = p.stack > 0;
+      p.inHand = p.connected && p.stack > 0;
     }
 
     this.dealerIdx = this._nextIdx(this.dealerIdx, (p) => p.inHand);
@@ -671,6 +719,7 @@ export class Table {
   destroy() {
     this._clearTurnTimer();
     clearTimeout(this._nextHandTimer);
+    clearTimeout(this._emptyTimer);
   }
 
   // Estado personalizado por jugador: solo ve sus cartas (y las reveladas
@@ -693,6 +742,7 @@ export class Table {
       turnDeadline: this.turnDeadline,
       result: this.result,
       log: this.log.slice(-30),
+      chat: this.chat.slice(-50),
       players: this.players.map((p) => ({
         id: p.id,
         colorIdx: p.colorIdx,

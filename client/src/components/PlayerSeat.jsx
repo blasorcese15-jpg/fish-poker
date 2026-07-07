@@ -61,10 +61,10 @@ export function PlayerSeat({ player, isDealer, isTurn, isMe, isAdmin, handInfo, 
           !player.folded &&
           player.cards.map((c, i) => <Card key={i} card={c} size="sm" />)}
       </div>
-      <div className="seat-plate" style={{ borderColor: color }}>
-        <span className="seat-hat" style={{ borderColor: color }}>
-          <CowboyHat color={color} size={22} />
-        </span>
+      <div className="seat-hat-big">
+        <CowboyHat color={color} size={46} />
+      </div>
+      <div className="seat-plate">
         {isDealer && <span className="dealer-btn">D</span>}
         <span className="seat-name">
           {isAdmin && (
@@ -77,8 +77,9 @@ export function PlayerSeat({ player, isDealer, isTurn, isMe, isAdmin, handInfo, 
         <span className="seat-stack">
           {player.stack > 0 ? player.stack : player.allIn ? 'ALL-IN' : 'sin fichas'}
         </span>
+        {!player.connected && <span className="seat-action seat-away-label">ausente 💤</span>}
         {handInfo && <span className="seat-hand-name">{handInfo}</span>}
-        {!handInfo && player.lastAction && (
+        {player.connected && !handInfo && player.lastAction && (
           <span className={`seat-action seat-action-${player.lastAction}`}>
             {ACTION_LABELS[player.lastAction]}
           </span>

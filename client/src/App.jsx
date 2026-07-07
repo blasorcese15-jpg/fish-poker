@@ -15,14 +15,36 @@ export default function App() {
 
   useEffect(() => {
     const onState = (s) => setState(s);
+    const onKicked = () => {
+      localStorage.removeItem('fp-table');
+      setState(null);
+      setError('El admin te sacó de la mesa.');
+    };
+    // Si se corta la conexión, socket.io reintenta solo; al reconectar
+    // recuperamos el asiento guardado (mismo nickname en la misma mesa).
+    const onConnect = () => {
+      const code = localStorage.getItem('fp-table');
+      const nick = localStorage.getItem('fp-nick');
+      if (code && nick) {
+        socket.emit('joinTable', { nickname: nick, code }, (res) => {
+          if (res?.error) localStorage.removeItem('fp-table');
+        });
+      }
+    };
     const onDisconnect = () => {
       setState(null);
-      setError('Se cortó la conexión con el saloon. Volvé a unirte con el código.');
+      if (localStorage.getItem('fp-table'))
+        setError('Se cortó la conexión… reconectando, tu asiento está guardado.');
     };
     socket.on('state', onState);
+    socket.on('kicked', onKicked);
+    socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
+    if (socket.connected) onConnect();
     return () => {
       socket.off('state', onState);
+      socket.off('kicked', onKicked);
+      socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
     };
   }, []);
@@ -35,7 +57,10 @@ export default function App() {
 
   const handleAck = (res) => {
     if (res?.error) setError(res.error);
-    else setError('');
+    else {
+      setError('');
+      if (res?.code) localStorage.setItem('fp-table', res.code);
+    }
   };
 
   if (editingNick) return <NicknameScreen initial={nickname} onDone={saveNick} />;
@@ -65,9 +90,11 @@ export default function App() {
           done?.();
         })
       }
+      onKick={(targetId) => socket.emit('kickPlayer', { targetId }, handleAck)}
       onEnd={() => socket.emit('endGame', handleAck)}
       onLeave={() => {
         socket.emit('leaveTable');
+        localStorage.removeItem('fp-table');
         setState(null);
       }}
     />

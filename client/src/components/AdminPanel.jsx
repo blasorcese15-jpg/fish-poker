@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { CHIP_DENOMS } from '../chips.js';
 import { Chip } from './Chip.jsx';
 
-// Panel del admin: elegir jugador + fichas por denominación y acreditarlas.
-export function AdminPanel({ players, myId, onGrant, onClose }) {
+// Panel del admin: acreditar fichas por denominación y sacar jugadores.
+export function AdminPanel({ players, myId, onGrant, onKick, onClose }) {
   const [targetId, setTargetId] = useState(players[0]?.id || '');
   const [counts, setCounts] = useState({});
   const [sending, setSending] = useState(false);
@@ -52,6 +52,34 @@ export function AdminPanel({ players, myId, onGrant, onClose }) {
         <p className="grant-total">
           Total a acreditar: <b>{total}</b>
         </p>
+
+        {players.some((p) => p.id !== myId) && (
+          <div className="kick-section">
+            <p className="field-label">Sacar de la mesa</p>
+            {players
+              .filter((p) => p.id !== myId)
+              .map((p) => (
+                <div className="kick-row" key={p.id}>
+                  <span className="kick-name">
+                    {p.nickname}
+                    {!p.connected && ' 💤'}
+                  </span>
+                  <span className="kick-stack">{p.stack} fichas</span>
+                  <button
+                    className="kick-btn"
+                    onClick={() => {
+                      if (window.confirm(`¿Sacar a ${p.nickname} de la mesa?`)) {
+                        onKick(p.id);
+                        onClose();
+                      }
+                    }}
+                  >
+                    Sacar
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
 
         <div className="action-row">
           <button className="btn btn-muted" onClick={onClose}>

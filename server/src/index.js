@@ -45,19 +45,30 @@ function cleanNickname(raw) {
   return nick.length >= 2 ? nick : null;
 }
 
+// Una mesa sin nadie conectado sobrevive un rato por si vuelven;
+// recién después se libera la memoria.
+const EMPTY_TABLE_TTL_MS = 30 * 60 * 1000;
+
+function scheduleCleanup(table) {
+  clearTimeout(table._emptyTimer);
+  table._emptyTimer = setTimeout(() => {
+    if (table.isEmpty()) {
+      table.destroy();
+      tables.delete(table.code);
+    }
+  }, EMPTY_TABLE_TTL_MS);
+}
+
 function leaveTable(socket) {
   const code = socket.data.tableCode;
   if (!code) return;
   const table = tables.get(code);
   socket.data.tableCode = null;
   if (!table) return;
-  table.removePlayer(socket.id);
-  if (table.isEmpty()) {
-    table.destroy();
-    tables.delete(code);
-  } else {
-    broadcast(table);
-  }
+  // Salir de la app no saca del juego: el asiento queda guardado
+  table.disconnect(socket.id);
+  if (table.isEmpty()) scheduleCleanup(table);
+  broadcast(table);
 }
 
 io.on('connection', (socket) => {
@@ -80,8 +91,9 @@ io.on('connection', (socket) => {
     if (!table) return cb({ error: 'No existe una mesa con ese código' });
     const res = table.addPlayer(socket.id, nick);
     if (res.error) return cb(res);
+    clearTimeout(table._emptyTimer);
     socket.data.tableCode = table.code;
-    cb({ ok: true, code: table.code });
+    cb({ ok: true, code: table.code, reclaimed: res.reclaimed });
     broadcast(table);
   });
 
@@ -107,6 +119,29 @@ io.on('connection', (socket) => {
     const res = table.grantChips(socket.id, targetId, chips || {});
     cb(res);
     broadcast(table);
+  });
+
+  socket.on('kickPlayer', ({ targetId }, cb = () => {}) => {
+    const table = tables.get(socket.data.tableCode);
+    if (!table) return cb({ error: 'No estás en una mesa' });
+    const res = table.kickPlayer(socket.id, targetId);
+    cb(res);
+    if (res.ok) {
+      const s = io.sockets.sockets.get(targetId);
+      if (s) {
+        s.data.tableCode = null;
+        s.emit('kicked');
+      }
+    }
+    broadcast(table);
+  });
+
+  socket.on('chat', ({ text }, cb = () => {}) => {
+    const table = tables.get(socket.data.tableCode);
+    if (!table) return cb({ error: 'No estás en una mesa' });
+    const res = table.addChat(socket.id, text);
+    cb(res);
+    if (res.ok) broadcast(table);
   });
 
   socket.on('endGame', (cb = () => {}) => {
