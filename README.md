@@ -31,6 +31,11 @@ en tiempo real). Opción recomendada, gratis:
 > Las mesas viven en memoria: si el server se reinicia, se pierden las
 > partidas en curso (los stacks duran lo que dure la partida).
 
+Para publicar cambios: `npm run deploy` (pushea a GitHub y dispara el build
+en Render vía deploy hook — la URL secreta vive en `.git/render-deploy-hook`,
+fuera del repo). Alternativa: instalar la GitHub App de Render sobre el repo
+para que cada push despliegue solo.
+
 ## Cómo se juega
 
 - El que crea la mesa es el **admin** (⭐): reparte la primera mano, puede

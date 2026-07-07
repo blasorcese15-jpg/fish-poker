@@ -7,7 +7,8 @@
     "install:all": "npm install --prefix server && npm install --prefix client && npm install",
     "dev": "concurrently -n server,client -c blue,cyan \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "build": "npm run build --prefix client",
-    "start": "node server/src/index.js"
+    "start": "node server/src/index.js",
+    "deploy": "git push && curl -s -X POST \"$(cat .git/render-deploy-hook)\" > /dev/null && echo 'Deploy disparado en Render 🚀'"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
