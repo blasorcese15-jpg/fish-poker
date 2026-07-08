@@ -260,12 +260,10 @@ body {
 .table-screen {
   height: 100dvh;
   overflow: hidden;
-  /* Paredes del saloon: textura de madera real + luz cenital + oscurecido abajo */
+  /* El casino de fondo (foto ambiente, desenfocada y oscurecida) */
   background:
-    radial-gradient(ellipse at 50% 6%, rgba(255, 214, 130, 0.12), transparent 55%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.42) 100%),
-    url('/assets/wood.jpg');
-  background-size: auto, auto, 220px 168px;
+    linear-gradient(180deg, rgba(15, 8, 3, 0.2) 0%, rgba(8, 4, 1, 0.55) 100%),
+    url('/assets/bg-casino.jpg') center top / cover no-repeat fixed;
 }
 
 .table-header {
@@ -341,8 +339,9 @@ body {
   z-index: 0;
 }
 
-/* Decoración colgada en la pared */
+/* Decoración colgada en la pared (oculta: el ambiente lo pone la foto) */
 .wall-decor {
+  display: none;
   position: absolute;
   top: 0;
   left: 0;
@@ -1279,7 +1278,7 @@ body {
     width: 110px;
   }
   .scene-decor {
-    display: block;
+    display: none; /* el ambiente lo pone la foto del casino */
   }
 }
 .scene-decor {
