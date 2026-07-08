@@ -11,6 +11,8 @@ import { bestHand, compareRanks } from './handEval.js';
 
 const AUTO_NEXT_HAND_MS = 8000;
 const DISCONNECT_ACT_MS = 1500;
+const RUNOUT_STEP_MS = 2400; // pausa dramática entre calles cuando hay all-in
+const REVEAL_DECISION_MS = 10000; // tiempo para decidir mostrar o no
 const BETTING_PHASES = ['preflop', 'flop', 'turn', 'river'];
 
 export const DENOMS = [1000, 750, 500, 250, 100, 50];
@@ -86,10 +88,18 @@ export class Table {
       maxPlayers: Math.min(Math.max(Math.floor(config.maxPlayers) || 9, 2), 9),
       turnTimer: Math.min(Math.max(Math.floor(config.turnTimer) || 0, 0), 120), // segundos, 0 = sin timer
     };
+    // Overrides para tests (acelerar animaciones del motor)
+    this._runoutMs = config.runoutMs ?? RUNOUT_STEP_MS;
+    this._revealMs = config.revealMs ?? REVEAL_DECISION_MS;
     this.onUpdate = onUpdate;
     this.hostId = null;
     this.players = [];
-    this.phase = 'waiting'; // waiting | preflop | flop | turn | river | showdown | ended
+    this.phase = 'waiting'; // waiting | preflop | flop | turn | river | reveal | showdown | ended
+    this.runout = false; // all-in: cartas expuestas y calles con pausa
+    this.revealTurnId = null; // de quién es el turno de mostrar (fase reveal)
+    this.lastAggressorIdx = -1; // último que apostó/subió en la calle actual
+    this._runoutTimer = null;
+    this._revealTimer = null;
     this.community = [];
     this.deck = [];
     this.potChips = {}; // fichas físicas ya recolectadas en el pozo
@@ -173,6 +183,9 @@ export class Table {
         p.lastAction = 'fold';
         this._checkUncontested();
       }
+    } else if (this.phase === 'reveal' && this.revealTurnId === id) {
+      // Se fue en su turno de mostrar: muestra automáticamente (no pierde el pozo)
+      this.handleReveal(id, true);
     }
   }
 
@@ -244,6 +257,10 @@ export class Table {
     if (this.phase === 'ended') return { error: 'La partida ya terminó' };
     this._clearTurnTimer();
     clearTimeout(this._nextHandTimer);
+    clearTimeout(this._runoutTimer);
+    clearTimeout(this._revealTimer);
+    this.runout = false;
+    this.revealTurnId = null;
     // Si había una mano en curso, cada uno recupera lo apostado en ella
     for (const p of this.players) {
       if (p.totalBet > 0) {
@@ -318,6 +335,11 @@ export class Table {
     this.potChips = {};
     this.currentBet = 0;
     this.minRaise = this.config.bigBlind;
+    this.runout = false;
+    this.revealTurnId = null;
+    this.lastAggressorIdx = -1;
+    clearTimeout(this._runoutTimer);
+    clearTimeout(this._revealTimer);
 
     for (const p of this.players) {
       p.cards = [];
@@ -328,6 +350,7 @@ export class Table {
       p.allIn = false;
       p.acted = false;
       p.lastAction = null;
+      p.showCards = null;
       p.inHand = p.connected && p.stack > 0;
     }
 
@@ -467,6 +490,7 @@ export class Table {
           for (const q of this.players) if (q !== p) q.acted = false;
         }
         this.currentBet = target;
+        this.lastAggressorIdx = this.toActIdx; // reglamento §12: muestra primero el último que apostó
         p.lastAction = p.allIn ? 'all-in' : 'raise';
         this._log(`${p.nickname} sube a ${target}${p.allIn ? ' (all-in)' : ''}`);
       }
@@ -522,18 +546,118 @@ export class Table {
     const alive = this.players.filter((p) => p.inHand && !p.folded);
     const canAct = alive.filter((p) => !p.allIn);
 
-    // Si ya no puede haber más apuestas (all-ins) se reparte todo y showdown
-    if (this.phase === 'river' || canAct.length <= 1) {
-      while (this.community.length < 5) this._burnAndDeal();
-      this._showdown();
+    // All-in: se exponen las cartas y las calles restantes salen con pausa
+    if (canAct.length <= 1) {
+      this._startRunout();
+      return;
+    }
+    // River completo con apuestas cerradas: ronda de mostrar cartas
+    if (this.phase === 'river') {
+      this._startReveal();
       return;
     }
 
     this._burnAndDeal();
     this.phase =
       this.phase === 'preflop' ? 'flop' : this.phase === 'flop' ? 'turn' : 'river';
+    this.lastAggressorIdx = -1; // cada calle arranca sin agresor
     this._log(`Se reparte el ${this.phase}`);
     this._advanceTurn(this.dealerIdx);
+  }
+
+  // All-in: las cartas quedan expuestas y el flop/turn/river salen con una
+  // pausa dramática entre calle y calle antes del showdown.
+  _startRunout() {
+    this.runout = true;
+    this.toActIdx = -1;
+    if (this.community.length < 5) this._log('¡All-in! Se muestran las cartas…');
+    const step = () => {
+      if (this.phase === 'ended') return;
+      if (this.community.length < 5) {
+        this._burnAndDeal();
+        this.phase =
+          this.community.length === 3 ? 'flop' : this.community.length === 4 ? 'turn' : 'river';
+        this._log(`Se reparte el ${this.phase}`);
+        this.onUpdate();
+        this._runoutTimer = setTimeout(step, this._runoutMs);
+      } else {
+        this._showdown();
+        this.onUpdate();
+      }
+    };
+    this._runoutTimer = setTimeout(step, this._runoutMs);
+  }
+
+  // Ronda de mostrar (reglamento §12): en orden, empezando por el último
+  // que apostó, cada jugador decide si muestra sus cartas o las tira.
+  // El que no muestra renuncia al pozo; si queda uno solo, gana sin mostrar.
+  _startReveal() {
+    this.phase = 'reveal';
+    this.toActIdx = -1;
+    const alive = (p) => p.inHand && !p.folded;
+    const startIdx =
+      this.lastAggressorIdx >= 0 && alive(this.players[this.lastAggressorIdx] || {})
+        ? this.lastAggressorIdx
+        : this._nextIdx(this.dealerIdx, alive);
+    const queue = [this.players[startIdx].id];
+    let idx = startIdx;
+    for (;;) {
+      idx = this._nextIdx(idx, alive);
+      if (idx === -1 || idx === startIdx) break;
+      queue.push(this.players[idx].id);
+    }
+    this._revealQueue = queue;
+    this._log('Ronda de mostrar cartas');
+    this._nextRevealTurn();
+  }
+
+  _nextRevealTurn() {
+    clearTimeout(this._revealTimer);
+    const contenders = this.players.filter((p) => p.inHand && !p.folded);
+    if (contenders.length === 1) {
+      // Todos los demás tiraron: gana sin obligación de mostrar (§12)
+      this.revealTurnId = null;
+      this.turnDeadline = null;
+      this._awardUncontested(contenders[0]);
+      return;
+    }
+    const next = this._revealQueue.find((id) => {
+      const p = this.players.find((q) => q.id === id);
+      return p && p.inHand && !p.folded && p.showCards === null;
+    });
+    if (!next) {
+      this.revealTurnId = null;
+      this.turnDeadline = null;
+      this._showdown();
+      return;
+    }
+    this.revealTurnId = next;
+    const p = this.players.find((q) => q.id === next);
+    const ms = p.connected ? this._revealMs : DISCONNECT_ACT_MS;
+    this.turnDeadline = Date.now() + ms;
+    this._revealTimer = setTimeout(() => {
+      this.handleReveal(next, true); // por defecto muestra (nadie pierde el pozo por descuido)
+      this.onUpdate();
+    }, ms);
+  }
+
+  handleReveal(id, show) {
+    if (this.phase !== 'reveal') return { error: 'No es el momento de mostrar cartas' };
+    if (this.revealTurnId !== id) return { error: 'No es tu turno de mostrar' };
+    const p = this.players.find((q) => q.id === id);
+    if (!p) return { error: 'Jugador no encontrado' };
+    clearTimeout(this._revealTimer);
+    p.showCards = !!show;
+    if (show) {
+      this._log(`${p.nickname} muestra sus cartas`);
+    } else {
+      // Tirar las cartas sin mostrar = renunciar al pozo
+      p.folded = true;
+      p.lastAction = 'muck';
+      this._log(`${p.nickname} tira sus cartas sin mostrar`);
+    }
+    this._nextRevealTurn();
+    return { ok: true };
   }
 
   // Reglamento §6/8/10: se quema la primera carta del mazo antes de servir
@@ -650,8 +774,10 @@ export class Table {
     }
     this.phase = 'showdown';
     this.toActIdx = -1;
+    this.revealTurnId = null;
     this.turnDeadline = null;
     this._clearTurnTimer();
+    clearTimeout(this._revealTimer);
     this._nextHandTimer = setTimeout(() => {
       this.startHand();
       this.onUpdate();
@@ -720,6 +846,8 @@ export class Table {
     this._clearTurnTimer();
     clearTimeout(this._nextHandTimer);
     clearTimeout(this._emptyTimer);
+    clearTimeout(this._runoutTimer);
+    clearTimeout(this._revealTimer);
   }
 
   // Estado personalizado por jugador: solo ve sus cartas (y las reveladas
@@ -740,6 +868,8 @@ export class Table {
       toActIdx: this.toActIdx,
       hostId: this.hostId,
       turnDeadline: this.turnDeadline,
+      runout: this.runout,
+      revealTurnId: this.revealTurnId,
       result: this.result,
       log: this.log.slice(-30),
       chat: this.chat.slice(-50),
@@ -756,8 +886,12 @@ export class Table {
         inHand: p.inHand,
         connected: p.connected,
         lastAction: p.lastAction,
+        showCards: p.showCards,
         cards:
-          p.id === viewerId || revealed.has(p.id)
+          p.id === viewerId ||
+          revealed.has(p.id) ||
+          p.showCards === true ||
+          (this.runout && p.inHand && !p.folded)
             ? p.cards
             : p.cards.map(() => null),
       })),

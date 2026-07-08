@@ -68,6 +68,7 @@ const ACTION_LABELS = {
   call: 'Call',
   raise: 'Raise',
   'all-in': 'ALL-IN',
+  muck: 'No mostró',
 };
 
 export function PlayerSeat({ player, isDealer, isTurn, isMe, isAdmin, handInfo, turnDeadline, turnTotalMs }) {

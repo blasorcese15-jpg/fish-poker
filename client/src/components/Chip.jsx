@@ -36,15 +36,28 @@ export function Chip({ denom, size = 42 }) {
       />
       <text
         x="50"
-        y="50"
+        y="46"
         textAnchor="middle"
         dominantBaseline="central"
-        fontSize={denom.value >= 1000 ? 24 : 26}
+        fontSize={denom.value >= 1000 ? 23 : 25}
         fontWeight="800"
         fontFamily="Alegreya Sans, sans-serif"
         fill={denom.text}
       >
         {denom.value}
+      </text>
+      {/* Estrellitas al estilo de las fichas renderizadas */}
+      <text
+        x="50"
+        y="64"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize="10"
+        letterSpacing="1"
+        fill={denom.text}
+        opacity="0.75"
+      >
+        ★★★
       </text>
     </svg>
   );

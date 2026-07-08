@@ -4,11 +4,7 @@ const RANKS = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
 // card: {r, s} | null (boca abajo)
 export function Card({ card, size = 'md' }) {
   if (!card) {
-    return (
-      <div className={`card card-${size} card-back`} aria-label="Carta boca abajo">
-        <span className="card-back-fish">🐟</span>
-      </div>
-    );
+    return <div className={`card card-${size} card-back`} aria-label="Carta boca abajo" />;
   }
   const rank = RANKS[card.r] || String(card.r);
   const suit = SUITS[card.s];

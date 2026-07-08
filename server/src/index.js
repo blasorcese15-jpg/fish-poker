@@ -152,6 +152,14 @@ io.on('connection', (socket) => {
     broadcast(table);
   });
 
+  socket.on('reveal', ({ show } = {}, cb = () => {}) => {
+    const table = tables.get(socket.data.tableCode);
+    if (!table) return cb({ error: 'No estás en una mesa' });
+    const res = table.handleReveal(socket.id, !!show);
+    cb(res);
+    broadcast(table);
+  });
+
   socket.on('rebuy', () => {
     const table = tables.get(socket.data.tableCode);
     if (!table) return;

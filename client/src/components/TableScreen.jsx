@@ -10,7 +10,7 @@ import { PLAYER_COLORS } from './PlayerSeat.jsx';
 
 const BETTING = ['preflop', 'flop', 'turn', 'river'];
 
-export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, onGrant, onKick, onEnd }) {
+export function TableScreen({ state, myId, onAction, onReveal, onStart, onRebuy, onLeave, onGrant, onKick, onEnd }) {
   const [copied, setCopied] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [salsa, setSalsa] = useState(null); // {nickname, key} → animación festiva
@@ -109,6 +109,17 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
           <img className="wall-hat" src="/assets/hat-tan.png" alt="" style={{ right: '28%', top: 8, width: 40, transform: 'rotate(-4deg)' }} />
           <img className="wall-lantern" src="/assets/lantern.png" alt="" style={{ right: '7%' }} />
         </div>
+        {/* Escena de escritorio: baranda del balcón y sillones de cuero */}
+        <div className="scene-decor" aria-hidden="true">
+          <div className="scene-railing" />
+          <img className="scene-chair" src="/assets/chair.png" alt="" style={{ left: '1%' }} />
+          <img
+            className="scene-chair"
+            src="/assets/chair.png"
+            alt=""
+            style={{ right: '1%', transform: 'scaleX(-1)' }}
+          />
+        </div>
         <div className="felt">
           <div className="felt-brand">
             <span className="felt-brand-stars">★ ★ ★</span>
@@ -152,7 +163,10 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
                 player={p}
                 isAdmin={p.id === state.hostId}
                 isDealer={idx === state.dealerIdx && state.phase !== 'waiting'}
-                isTurn={inBetting && idx === state.toActIdx}
+                isTurn={
+                  (inBetting && idx === state.toActIdx) ||
+                  (state.phase === 'reveal' && state.revealTurnId === p.id)
+                }
                 isMe={idx === myIdx}
                 handInfo={handInfoById.get(p.id)}
                 turnDeadline={state.turnDeadline}
@@ -249,7 +263,21 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
           </div>
         )}
 
-        {isMyTurn && me ? (
+        {state.phase === 'reveal' && state.revealTurnId === myId ? (
+          <div className="action-bar">
+            <p className="reveal-hint">
+              Tu turno de mostrar. Si no mostrás, <b>renunciás al pozo</b>.
+            </p>
+            <div className="action-row">
+              <button className="btn btn-muted" onClick={() => onReveal(false)}>
+                No mostrar
+              </button>
+              <button className="btn btn-call" onClick={() => onReveal(true)}>
+                Mostrar cartas 🃏
+              </button>
+            </div>
+          </div>
+        ) : isMyTurn && me ? (
           <ActionBar state={state} me={me} onAction={onAction} />
         ) : (
           <div className="footer-info">
@@ -263,7 +291,16 @@ export function TableScreen({ state, myId, onAction, onStart, onRebuy, onLeave, 
                 Recomprar {state.config.buyIn}
               </button>
             )}
-            {inBetting && !isMyTurn && state.toActIdx >= 0 && (
+            {state.runout && inBetting && (
+              <span className="turn-hint runout-hint">🔥 ALL-IN — repartiendo…</span>
+            )}
+            {state.phase === 'reveal' && state.revealTurnId !== myId && (
+              <span className="turn-hint">
+                <b>{state.players.find((p) => p.id === state.revealTurnId)?.nickname}</b> decide
+                si muestra sus cartas…
+              </span>
+            )}
+            {!state.runout && inBetting && !isMyTurn && state.toActIdx >= 0 && (
               <span className="turn-hint">
                 Turno de <b>{state.players[state.toActIdx]?.nickname}</b>…
               </span>

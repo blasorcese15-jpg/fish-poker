@@ -82,6 +82,7 @@ export default function App() {
       state={state}
       myId={socket.id}
       onAction={(a) => socket.emit('action', a, handleAck)}
+      onReveal={(show) => socket.emit('reveal', { show }, handleAck)}
       onStart={() => socket.emit('startHand')}
       onRebuy={() => socket.emit('rebuy')}
       onGrant={(targetId, chips, done) =>
